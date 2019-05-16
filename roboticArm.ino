@@ -12,16 +12,29 @@ const char* password = "asdfghjkl123456789";
 WebSocketsServer webSocket = WebSocketsServer(81);
 ESP8266WebServer server(80);   //instantiate server at port 80 (http port)
 
-String page = "";
-int LEDPin = 13;
+#define PUMP D2
+#define FLAME D7
+#define OUT5 D8
+
+int flame_detected ;
+int pumpOn;
+
 Servo bServo;
 Servo lServo;
 Servo rServo;
+ 
 
 void setup(void){
 
- pinMode(LEDPin, OUTPUT);
- digitalWrite(LEDPin, LOW);
+  
+  pumpOn = 0;
+
+ pinMode(PUMP, OUTPUT);
+ digitalWrite(PUMP, LOW);
+  
+ pinMode(FLAME, INPUT);
+ pinMode(OUT5, OUTPUT);
+ digitalWrite(OUT5, HIGH);
 
  delay(1000);
 
@@ -48,7 +61,7 @@ void setup(void){
 
   Serial.println("Web server started!");
 
-//  servo section
+  //  servo section
   bServo.attach(D4); //D4
   //bServo.write(0);
   
@@ -57,6 +70,7 @@ void setup(void){
   
   rServo.attach(D6); //D4
   //rServo.write(0);
+
 
 }
 
@@ -67,35 +81,56 @@ void loop(void){
     char c[] = {(char)Serial.read()};
     webSocket.broadcastTXT(c, sizeof(c));
   }
+
+  flame_detected = digitalRead(FLAME);
+  if (flame_detected == 0 && pumpOn == 0) {
+    digitalWrite(PUMP, HIGH);
+  } else if(flame_detected == 1) {
+    digitalWrite(PUMP, LOW);
+  }
+  Serial.println(flame_detected);
+  
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length){
   if (type == WStype_TEXT){
-   //for(int i = 0; i < length; i++) Serial.print((char) payload[i]);
-   //Serial.println();
 
     String inputVal = (char *) payload;
     Serial.println(inputVal);
 
-    String servoName = getValue(inputVal, '-', 0);
-    String servoVal = getValue(inputVal, '-', 1);
+    String commandN = getValue(inputVal, '-', 0);
+    String commandV = getValue(inputVal, '-', 1);
   
-    Serial.println("Y:" + servoName);
-    Serial.print("X:" + servoVal);
+    Serial.println("Y:" + commandN);
+    Serial.print("X:" + commandV);
 
-    if(servoName == "base") {
-      bServo.write(servoVal.toInt());
+    if(commandN == "base") {
+      bServo.write(commandV.toInt());
       delay(30);
     }
     
-    if(servoName == "right") {
-      rServo.write(servoVal.toInt());
+    if(commandN == "right") {
+      rServo.write(commandV.toInt());
       delay(30);
     }
 
-    if(servoName == "left") {
-      lServo.write(servoVal.toInt());
+    if(commandN == "left") {
+      lServo.write(commandV.toInt());
       delay(30);
+    }
+
+    if(commandN == "pumpOn") {
+      if( !digitalRead(PUMP) ){
+        pumpOn = 1;
+        digitalWrite(PUMP, HIGH);
+      }
+    }
+
+    if(commandN == "pumpOff") {
+      if( digitalRead(PUMP) ){
+        pumpOn = 0;
+        digitalWrite(PUMP, LOW);
+      }
     }
     
   }
@@ -103,10 +138,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
   if(type == WStype_CONNECTED)
             {
               IPAddress ip = webSocket.remoteIP(num);
-              Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num,     ip[0], ip[1], ip[2], ip[3], payload); 
-                    //bServo.write(0);   
-                    //lServo.write(0);  
-                    //rServo.write(0);  
+              Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num,     ip[0], ip[1], ip[2], ip[3], payload);
             }
 }
 String getValue(String data, char separator, int index)
