@@ -13,7 +13,7 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 ESP8266WebServer server(80);   //instantiate server at port 80 (http port)
 
 #define PUMP D2
-#define FLAME D7
+#define FLAME A0
 #define OUT5 D8
 
 int flame_detected ;
@@ -39,6 +39,7 @@ void setup(void){
  delay(1000);
 
  Serial.begin(9600);
+ WiFi.setSleepMode(WIFI_NONE_SLEEP);
  WiFi.begin(ssid, password); //begin WiFi connection
  Serial.println("");
 
@@ -81,14 +82,22 @@ void loop(void){
     char c[] = {(char)Serial.read()};
     webSocket.broadcastTXT(c, sizeof(c));
   }
-
-  flame_detected = digitalRead(FLAME);
-  if (flame_detected == 0 && pumpOn == 0) {
-    digitalWrite(PUMP, HIGH);
-  } else if(flame_detected == 1) {
-    digitalWrite(PUMP, LOW);
-  }
-  Serial.println(flame_detected);
+//
+//  flame_detected = analogRead(FLAME);
+//  float voltage = flame_detected * (5.0 / 1023.0);
+//  if (voltage < 0.21 && pumpOn == 0) {
+//    digitalWrite(PUMP, HIGH);
+//  } else if(voltage > 4) {
+//    digitalWrite(PUMP, LOW);
+//  }
+//
+//  flame_detected = digitalRead(FLAME);
+//  float voltage = flame_detected * (5.0 / 1023.0);
+//  if (voltage < 0.21 && pumpOn == 0) {
+//    digitalWrite(PUMP, HIGH);
+//  } else if(voltage > 4) {
+//    digitalWrite(PUMP, LOW);
+//  }
   
 }
 
