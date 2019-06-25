@@ -13,11 +13,16 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 ESP8266WebServer server(80);   //instantiate server at port 80 (http port)
 
 #define PUMP D2
-#define FLAME A0
+#define FLAME D7
 #define OUT5 D8
+
+#define SPEED D4
+#define motorEn1 D0
+#define motorEn2 D3
 
 int flame_detected ;
 int pumpOn;
+int speedVal;
 
 Servo bServo;
 Servo lServo;
@@ -26,15 +31,21 @@ Servo rServo;
 
 void setup(void){
 
-  
   pumpOn = 0;
-
- pinMode(PUMP, OUTPUT);
- digitalWrite(PUMP, LOW);
   
- pinMode(FLAME, INPUT);
- pinMode(OUT5, OUTPUT);
- digitalWrite(OUT5, HIGH);
+  pinMode(PUMP, OUTPUT);
+  digitalWrite(PUMP, LOW);
+  
+  pinMode(FLAME, INPUT);
+  pinMode(OUT5, OUTPUT);
+  digitalWrite(OUT5, HIGH);
+  
+  pinMode(SPEED, OUTPUT);
+  pinMode(motorEn1, OUTPUT);
+  pinMode(motorEn2, OUTPUT);
+
+  digitalWrite(motorEn1, LOW);
+  digitalWrite(motorEn2, HIGH);
 
  delay(1000);
 
@@ -63,10 +74,10 @@ void setup(void){
   Serial.println("Web server started!");
 
   //  servo section
-  bServo.attach(D4); //D4
+  bServo.attach(D5); //D4
   //bServo.write(0);
   
-  lServo.attach(D5); //D4
+  lServo.attach(D1); //D4
   //lServo.write(0);
   
   rServo.attach(D6); //D4
@@ -92,13 +103,27 @@ void loop(void){
 //  }
 //
 //  flame_detected = digitalRead(FLAME);
-//  float voltage = flame_detected * (5.0 / 1023.0);
-//  if (voltage < 0.21 && pumpOn == 0) {
+//  // float voltage = flame_detected * (5.0 / 1023.0);
+//  if (flame_detected == 0 && pumpOn == 0) {
 //    digitalWrite(PUMP, HIGH);
-//  } else if(voltage > 4) {
+//  } else if(flame_detected == 1) {
 //    digitalWrite(PUMP, LOW);
 //  }
-  
+
+  flame_detected = digitalRead(FLAME);
+  if(flame_detected == 0) {
+    if(pumpOn == 0) {
+      digitalWrite(PUMP, HIGH);
+      
+    }
+  } else {
+    if(pumpOn == 0) {
+      digitalWrite(PUMP, LOW);
+    }
+  }
+      
+  int pwmOutput = map(speedVal, 0, 1023, 0, 255);
+  analogWrite(SPEED, pwmOutput);
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length){
@@ -111,7 +136,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     String commandV = getValue(inputVal, '-', 1);
   
     Serial.println("Y:" + commandN);
-    Serial.print("X:" + commandV);
+    Serial.println("X:" + commandV);
 
     if(commandN == "base") {
       bServo.write(commandV.toInt());
@@ -129,26 +154,37 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     }
 
     if(commandN == "pumpOn") {
-      if( !digitalRead(PUMP) ){
+     // if( !digitalRead(PUMP) ){
         pumpOn = 1;
+        speedVal = commandV.toInt();
         digitalWrite(PUMP, HIGH);
-      }
+        int pwmOutput = map(speedVal, 0, 1023, 0, 255);
+        analogWrite(SPEED, pwmOutput);
+      //}
     }
 
     if(commandN == "pumpOff") {
-      if( digitalRead(PUMP) ){
+      //if( digitalRead(PUMP) ){
         pumpOn = 0;
         digitalWrite(PUMP, LOW);
-      }
+        speedVal = commandV.toInt();
+
+          // need to write an if condition
+//        int pwmOutput = map(speedVal, 0, 1023, 0, 255);
+//        analogWrite(SPEED, pwmOutput);
+      //}
+    }
+
+    if(commandN == "speed") {
+      speedVal = commandV.toInt();
     }
     
   }
 
-  if(type == WStype_CONNECTED)
-            {
-              IPAddress ip = webSocket.remoteIP(num);
-              Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num,     ip[0], ip[1], ip[2], ip[3], payload);
-            }
+  if(type == WStype_CONNECTED) {
+    IPAddress ip = webSocket.remoteIP(num);
+    Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+  }
 }
 String getValue(String data, char separator, int index)
 {
